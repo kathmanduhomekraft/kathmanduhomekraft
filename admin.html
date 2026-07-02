@@ -111,8 +111,15 @@ function view(id){
     '<p><b>'+o.qty+' jar(s)</b> — '+fmt(o.total)+(o.txn_ref?' · Txn: '+esc(o.txn_ref):'')+'</p>'+
     '<div id="shotwrap"><p>Loading screenshot…</p></div>'+
     (o.status==='pending'
-      ? '<label>Delivery time</label><input id="dt" value="1–2 days"><div style="display:flex;gap:8px;margin-top:10px"><button class="act" onclick="confirmOrder('+o.id+')">Confirm &amp; email</button><button class="act alt" onclick="orderAction('+o.id+',\'cancel\')">Cancel</button></div>'
-      : (o.status==='confirmed' ? '<p style="margin-top:8px">Confirmed · delivery '+esc(o.delivery_time||'')+'</p><button class="act alt" onclick="orderAction('+o.id+',\'deliver\')">Mark delivered</button>' : '<p style="margin-top:8px">Status: '+esc(o.status)+'</p>'))+
+      ? '<label>Delivery time</label><input id="dt" value="1–2 days"><div style="margin-top:10px"><button class="act" onclick="confirmOrder('+o.id+')">Confirm &amp; email</button></div>'+
+        '<div style="margin-top:16px;border-top:1px solid #eee;padding-top:12px">'+
+        '<label>Cancel reason</label><select id="cancelReason"><option>Payment not received</option><option>Payment amount mismatch</option><option>Duplicate order</option><option>Out of stock</option><option>Customer requested cancellation</option><option>Other</option></select>'+
+        '<label>Note to customer (optional)</label><input id="cancelNote" placeholder="e.g. screenshot did not match order total">'+
+        '<button class="act alt" style="margin-top:8px;background:#8E1B1B;color:#fff" onclick="cancelOrder('+o.id+')">Cancel order &amp; notify customer</button>'+
+        '</div>'
+      : (o.status==='confirmed' ? '<p style="margin-top:8px">Confirmed · delivery '+esc(o.delivery_time||'')+'</p><button class="act alt" onclick="orderAction('+o.id+',\'deliver\')">Mark delivered</button>'
+        : (o.status==='cancelled' ? '<p style="margin-top:8px;color:#8E1B1B">Cancelled'+(o.cancel_reason?': '+esc(o.cancel_reason):'')+'</p>'
+        : '<p style="margin-top:8px">Status: '+esc(o.status)+'</p>')))+
     '<p class="msg" id="dmsg"></p><div style="text-align:right;margin-top:10px"><button class="act alt" onclick="document.getElementById(\'dlg\').close()">Close</button></div>';
   dl.showModal();
   if(o.screenshot_key){
@@ -125,6 +132,15 @@ function confirmOrder(id){
   var dt=document.getElementById('dt').value;
   api('/api/admin/confirm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id,action:'confirm',delivery_time:dt})}).then(function(r){
     document.getElementById('dmsg').textContent=r.ok?'Confirmed — email sent.':'Failed.';
+    if(r.ok){loadOrders();loadDash();}
+  });
+}
+function cancelOrder(id){
+  var reason=document.getElementById('cancelReason').value;
+  var note=document.getElementById('cancelNote').value.trim();
+  var full=note?(reason+' — '+note):reason;
+  api('/api/admin/confirm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id,action:'cancel',reason:full})}).then(function(r){
+    document.getElementById('dmsg').textContent=r.ok?'Order cancelled — customer notified by email.':'Failed.';
     if(r.ok){loadOrders();loadDash();}
   });
 }
