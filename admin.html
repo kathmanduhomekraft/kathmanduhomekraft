@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kathmandu HomeKraft — Admin</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%234A0D0D'/%3E%3Ccircle cx='32' cy='27' r='10' fill='%23E8A91C'/%3E%3Cpath d='M10 50 L26 25 L36 40 L44 28 L56 50 Z' fill='%23F7CC55'/%3E%3C/svg%3E">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,Arial,sans-serif;background:#F4E7C9;color:#2A1710}
+  header{background:#4A0D0D;color:#FBF4E6;padding:14px 20px;display:flex;justify-content:space-between;align-items:center}
+  header b{font-family:Georgia,serif}
+  nav{display:flex;gap:6px;background:#fff;padding:8px 20px;border-bottom:1px solid #e2d6c0;flex-wrap:wrap}
+  nav button{border:0;background:transparent;font:inherit;font-weight:600;padding:8px 14px;border-radius:999px;cursor:pointer;color:#6B5240}
+  nav button.on{background:#8E1B1B;color:#fff}
+  main{padding:20px;max-width:1000px;margin:0 auto}
+  .card{background:#fff;border:1px solid #e2d6c0;border-radius:12px;padding:18px;margin-bottom:16px}
+  .stat{display:inline-block;background:#fff;border:1px solid #e2d6c0;border-radius:12px;padding:14px 20px;margin:0 12px 12px 0;min-width:150px}
+  .stat .n{font-size:24px;font-weight:700;color:#8E1B1B}
+  table{width:100%;border-collapse:collapse}
+  th,td{text-align:left;padding:8px;border-bottom:1px solid #eee;font-size:14px;vertical-align:top}
+  .badge{padding:2px 8px;border-radius:10px;color:#fff;font-size:12px}
+  button.act{border:0;border-radius:8px;padding:6px 10px;font:inherit;font-size:13px;cursor:pointer;background:#8E1B1B;color:#fff}
+  button.act.alt{background:#eee;color:#333}
+  input,select{font:inherit;padding:8px;border:1.5px solid #ddd;border-radius:8px;width:100%}
+  label{display:block;font-size:13px;font-weight:600;color:#6B5240;margin:8px 0 3px}
+  .hide{display:none}
+  .login{max-width:340px;margin:12vh auto;background:#fff;border-radius:14px;padding:24px;border:1px solid #e2d6c0}
+  dialog{border:0;border-radius:14px;padding:0;max-width:520px;width:92%}
+  dialog .in{padding:20px}
+  img.shot{max-width:100%;border-radius:8px;border:1px solid #eee}
+  .msg{font-weight:600;margin-top:8px}
+</style>
+</head>
+<body>
+<div id="login" class="login">
+  <h2 style="color:#4A0D0D">Kathmandu HomeKraft</h2><p style="font-size:12px;color:#8E1B1B;letter-spacing:1px;margin:-4px 0 0">&amp; FLAVORS · ADMIN</p>
+  <p style="font-size:13px;color:#6B5240;margin:6px 0 14px">Enter your admin key to continue.</p>
+  <input id="key" type="password" placeholder="ADMIN_KEY">
+  <button class="act" style="width:100%;margin-top:12px;padding:10px" onclick="login()">Enter</button>
+  <p class="msg" id="lmsg" style="color:#8E1B1B"></p>
+</div>
+
+<div id="app" class="hide">
+  <header><b>Kathmandu HomeKraft &amp; Flavors — Admin</b><button class="act alt" onclick="logout()">Log out</button></header>
+  <nav>
+    <button class="on" data-tab="dash" onclick="tab('dash')">Dashboard</button>
+    <button data-tab="orders" onclick="tab('orders')">Orders</button>
+    <button data-tab="enq" onclick="tab('enq')">Enquiries</button>
+    <button data-tab="set" onclick="tab('set')">Settings</button>
+  </nav>
+  <main>
+    <section id="dash">
+      <div id="stats"></div>
+      <div class="card"><h3>Sales — last 30 days</h3><canvas id="chart" height="90"></canvas></div>
+    </section>
+    <section id="orders" class="hide"><div class="card"><table id="otable"><thead><tr><th>#</th><th>Date</th><th>Customer</th><th>Qty</th><th>Total</th><th>Status</th><th></th></tr></thead><tbody></tbody></table></div></section>
+    <section id="enq" class="hide"><div class="card"><table id="etable"><thead><tr><th>Date</th><th>Type</th><th>Name</th><th>Contact</th><th>Qty</th><th>Message</th></tr></thead><tbody></tbody></table></div></section>
+    <section id="set" class="hide"><div class="card" id="setform"></div></section>
+  </main>
+</div>
+
+<dialog id="dlg"><div class="in" id="dlgin"></div></dialog>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script>
+var KEY='';
+function H(){return {'x-admin-key':KEY};}
+function login(){KEY=document.getElementById('key').value.trim();if(!KEY){return;}
+  api('/api/admin/stats').then(function(r){if(r.ok){sessionStorage.setItem('khf_key',KEY);start();}else{document.getElementById('lmsg').textContent='Wrong key.';}}).catch(function(){document.getElementById('lmsg').textContent='Error.';});}
+function logout(){sessionStorage.removeItem('khf_key');location.reload();}
+function api(u,opt){opt=opt||{};opt.headers=Object.assign(H(),opt.headers||{});return fetch(u,opt).then(function(r){return r.json();});}
+function start(){document.getElementById('login').classList.add('hide');document.getElementById('app').classList.remove('hide');loadDash();loadOrders();loadEnq();loadSettings();}
+function tab(t){['dash','orders','enq','set'].forEach(function(x){document.getElementById(x).classList.toggle('hide',x!==t);});document.querySelectorAll('nav button').forEach(function(b){b.classList.toggle('on',b.dataset.tab===t);});}
+
+var chart;
+function loadDash(){api('/api/admin/stats').then(function(d){
+  if(!d.ok)return;
+  document.getElementById('stats').innerHTML=
+    '<div class="stat"><div>Confirmed sales</div><div class="n">'+fmt(d.sales)+'</div></div>'+
+    '<div class="stat"><div>Total orders</div><div class="n">'+d.orders+'</div></div>'+
+    '<div class="stat"><div>Awaiting verification</div><div class="n" style="color:#C77D14">'+d.pending+'</div></div>';
+  if(chart)chart.destroy();
+  chart=new Chart(document.getElementById('chart'),{type:'line',data:{labels:d.labels,datasets:[{data:d.values,borderColor:'#8E1B1B',backgroundColor:'rgba(142,27,27,.12)',fill:true,tension:.3}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}});
+});}
+function fmt(n){return 'Rs. '+Number(n).toLocaleString('en-IN');}
+
+var ORD=[];
+function loadOrders(){api('/api/admin/orders').then(function(d){
+  if(!d.ok)return;ORD=d.orders;
+  var col={pending:'#C77D14',confirmed:'#3E6B28',cancelled:'#999',delivered:'#8E1B1B'};
+  var lab={pending:'Awaiting verification',confirmed:'Confirmed',cancelled:'Cancelled',delivered:'Delivered'};
+  var tb=document.querySelector('#otable tbody');tb.innerHTML='';
+  d.orders.forEach(function(o){
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td>#'+o.id+'</td><td>'+o.created_at.slice(0,16).replace('T',' ')+'</td><td>'+esc(o.name)+'<br><small>'+esc(o.phone)+'</small></td><td>'+o.qty+'</td><td>'+fmt(o.total)+'</td><td><span class="badge" style="background:'+(col[o.status]||'#777')+'">'+lab[o.status]+'</span></td><td><button class="act" onclick="view('+o.id+')">View</button></td>';
+    tb.appendChild(tr);
+  });
+  // also refresh enquiries list datasource present in same call
+  var et=document.querySelector('#etable tbody');et.innerHTML='';
+  (d.inquiries||[]).forEach(function(q){var tr=document.createElement('tr');tr.innerHTML='<td>'+q.created_at.slice(0,10)+'</td><td>'+esc(q.type)+'</td><td>'+esc(q.name)+(q.company?'<br><small>'+esc(q.company)+'</small>':'')+'</td><td>'+esc(q.email)+'<br><small>'+esc(q.phone||'')+' '+esc(q.country||'')+'</small></td><td>'+esc(q.quantity||'')+'</td><td>'+esc(q.message||'')+'</td>';et.appendChild(tr);});
+});}
+function loadEnq(){/* filled by loadOrders call */}
+
+function view(id){
+  var o=ORD.find(function(x){return x.id===id;});if(!o)return;
+  var dl=document.getElementById('dlg'),el=document.getElementById('dlgin');
+  el.innerHTML='<h3>Order #'+o.id+'</h3>'+
+    '<p><b>'+esc(o.name)+'</b> · '+esc(o.phone)+'<br>'+esc(o.email)+'</p>'+
+    '<p><b>Deliver to:</b> '+esc(o.delivery_location)+', '+esc(o.country)+'<br>'+esc(o.address||'')+'</p>'+
+    (o.is_gift?'<p><b>Gift for:</b> '+esc(o.recipient_name)+' ('+esc(o.recipient_phone)+')</p>':'')+
+    (o.notes?'<p><b>Notes:</b> '+esc(o.notes)+'</p>':'')+
+    '<p><b>'+o.qty+' jar(s)</b> — '+fmt(o.total)+(o.txn_ref?' · Txn: '+esc(o.txn_ref):'')+'</p>'+
+    '<div id="shotwrap"><p>Loading screenshot…</p></div>'+
+    (o.status==='pending'
+      ? '<label>Delivery time</label><input id="dt" value="1–2 days"><div style="display:flex;gap:8px;margin-top:10px"><button class="act" onclick="confirmOrder('+o.id+')">Confirm &amp; email</button><button class="act alt" onclick="orderAction('+o.id+',\'cancel\')">Cancel</button></div>'
+      : (o.status==='confirmed' ? '<p style="margin-top:8px">Confirmed · delivery '+esc(o.delivery_time||'')+'</p><button class="act alt" onclick="orderAction('+o.id+',\'deliver\')">Mark delivered</button>' : '<p style="margin-top:8px">Status: '+esc(o.status)+'</p>'))+
+    '<p class="msg" id="dmsg"></p><div style="text-align:right;margin-top:10px"><button class="act alt" onclick="document.getElementById(\'dlg\').close()">Close</button></div>';
+  dl.showModal();
+  if(o.screenshot_key){
+    fetch('/api/admin/file?key='+encodeURIComponent(o.screenshot_key),{headers:H()}).then(function(r){return r.blob();}).then(function(b){
+      document.getElementById('shotwrap').innerHTML='<img class="shot" src="'+URL.createObjectURL(b)+'">';
+    }).catch(function(){document.getElementById('shotwrap').innerHTML='<p>Could not load screenshot.</p>';});
+  } else { document.getElementById('shotwrap').innerHTML='<p style="color:#999">No screenshot (maybe via WhatsApp).</p>'; }
+}
+function confirmOrder(id){
+  var dt=document.getElementById('dt').value;
+  api('/api/admin/confirm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id,action:'confirm',delivery_time:dt})}).then(function(r){
+    document.getElementById('dmsg').textContent=r.ok?'Confirmed — email sent.':'Failed.';
+    if(r.ok){loadOrders();loadDash();}
+  });
+}
+function orderAction(id,act){
+  api('/api/admin/confirm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id,action:act})}).then(function(r){
+    document.getElementById('dmsg').textContent=r.ok?('Marked '+r.status):'Failed.';if(r.ok){loadOrders();loadDash();}
+  });
+}
+
+function loadSettings(){api('/api/admin/settings').then(function(d){
+  if(!d.ok)return;var c=d.config;
+  var f=[['business','Business name'],['price','Price per jar'],['currency','Currency'],['whatsapp','WhatsApp (no +)'],['qr_url','QR image URL'],['bank_name','Bank name'],['acc_name','Account name'],['acc_number','Account number'],['esewa','eSewa / Khalti'],['delivery','Default delivery time']];
+  document.getElementById('setform').innerHTML='<h3>Business settings</h3>'+f.map(function(x){return '<label>'+x[1]+'</label><input id="s_'+x[0]+'" value="'+esc(c[x[0]]==null?'':c[x[0]])+'">';}).join('')+'<button class="act" style="margin-top:14px" onclick="saveSettings()">Save</button><p class="msg" id="smsg"></p>';
+});}
+function saveSettings(){
+  var f=['business','price','currency','whatsapp','qr_url','bank_name','acc_name','acc_number','esewa','delivery'],body={};
+  f.forEach(function(k){body[k]=document.getElementById('s_'+k).value;});
+  api('/api/admin/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(function(r){document.getElementById('smsg').textContent=r.ok?'Saved.':'Failed.';});
+}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+
+(function(){var k=sessionStorage.getItem('khf_key');if(k){KEY=k;start();}})();
+</script>
+</body>
+</html>
