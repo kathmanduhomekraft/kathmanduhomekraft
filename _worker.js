@@ -196,7 +196,15 @@ async function routeAdminConfirm(request, env) {
   const cfg = await getConfig(env);
 
   if (b.action === "cancel") {
-    await env.DB.prepare("UPDATE orders SET status='cancelled' WHERE id=?1").bind(id).run();
+    const reason = (b.reason || "Order cancelled").toString().slice(0, 300);
+    await env.DB.prepare("UPDATE orders SET status='cancelled', cancel_reason=?2 WHERE id=?1").bind(id, reason).run();
+    await sendEmail(env, o.email, `Your order #${id} was cancelled`,
+      `<p>Namaste ${esc(o.name)},</p>
+       <p>We're sorry — your order <b>#${id}</b> has been <b>cancelled</b>.</p>
+       <p style="background:#F4E7C9;border-radius:10px;padding:12px 14px">${orderSummary(cfg, o)}</p>
+       <p><b>Reason:</b> ${esc(reason)}</p>
+       <p>If this seems wrong, or you'd like to place a new order, just reply to this email.</p>
+       <p>Dhanyabaad for your interest! 🙏</p>`);
     return json({ ok: true, status: "cancelled" });
   }
   if (b.action === "deliver") {
